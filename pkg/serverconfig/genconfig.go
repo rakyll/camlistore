@@ -248,6 +248,56 @@ func addS3Config(prefixes jsonconfig.Obj, s3 string) error {
 	return nil
 }
 
+func addDriveConfig(prefixes jsonconfig.Obj, highCfg string) error {
+	f := strings.SplitN(highCfg, ":", 4)
+	if len(f) != 4 {
+		return errors.New(`genconfig: expected "drive" field to be of form "client_id:client_secret:refresh_token:parent_id"`)
+	}
+	clientId, secret, refreshToken, parentId := f[0], f[1], f[2], f[3]
+
+	isPrimary := false
+	if _, ok := prefixes["/bs/"]; !ok {
+		isPrimary = true
+	}
+
+	prefix := ""
+	if isPrimary {
+		prefix = "/bs/"
+	} else {
+		prefix = "/sto-drive/"
+	}
+	prefixes[prefix] = map[string]interface{}{
+		"handler": "storage-drive",
+		"handlerArgs": map[string]interface{}{
+			"parent_id": parentId,
+			"auth": map[string]interface{}{
+				"client_id":     clientId,
+				"client_secret": secret,
+				"refresh_token": refreshToken,
+			},
+		},
+	}
+
+	if isPrimary {
+		prefixes["/cache/"] = map[string]interface{}{
+			"handler": "storage-filesystem",
+			"handlerArgs": map[string]interface{}{
+				"path": filepath.Join(tempDir(), "camli-cache"),
+			},
+		}
+	} else {
+		prefixes["/sync-to-drive/"] = map[string]interface{}{
+			"handler": "sync",
+			"handlerArgs": map[string]interface{}{
+				"from": "/bs/",
+				"to":   prefix,
+			},
+		}
+	}
+
+	return nil
+}
+
 func addGoogleConfig(prefixes jsonconfig.Obj, highCfg string) error {
 	f := strings.SplitN(highCfg, ":", 4)
 	if len(f) != 4 {
@@ -428,6 +478,7 @@ func genLowLevelConfig(conf *Config) (lowLevelConf *Config, err error) {
 		blobPath = conf.OptionalString("blobPath", "")
 		s3       = conf.OptionalString("s3", "")     // "access_key_id:secret_access_key:bucket"
 		gstorage = conf.OptionalString("google", "") // "clientId:clientSecret:refreshToken:bucket"
+		drive    = conf.OptionalString("drive", "")  // "clientId:clientSecret:refreshToken:bucket"
 		// Enable the share handler. If true, and shareHandlerPath is empty,
 		// then shareHandlerPath defaults to "/share/".
 		shareHandler = conf.OptionalBool("shareHandler", false)
@@ -584,6 +635,11 @@ func genLowLevelConfig(conf *Config) (lowLevelConf *Config, err error) {
 	}
 	if s3 != "" {
 		if err := addS3Config(prefixes, s3); err != nil {
+			return nil, err
+		}
+	}
+	if drive != "" {
+		if err := addDriveConfig(prefixes, drive); err != nil {
 			return nil, err
 		}
 	}
