@@ -56,19 +56,22 @@ func (s *DriveService) Get(id string) (*driveclient.File, error) {
 
 // Lists at most limitted number of files
 // from the parent folder
-func (s *DriveService) List(after string, limit int) ([]*driveclient.File, error) {
+func (s *DriveService) List(pageToken string, limit int) ([]*driveclient.File, err error) {
 	req := s.apiservice.Files.List()
 	req.Q(fmt.Sprintf("'%s' in parents", s.parentId))
 
-	if after != "" {
-		req.PageToken(after)
+	if pageToken != "" {
+		req.PageToken(pageToken)
 	}
-	if limit == 0 {
-		limit = 1000
+	
+	if limit > 0 {
+		req.MaxResults(int64(limit))
 	}
-	req.MaxResults(int64(limit))
+	
 	result, err := req.Do()
-	// todo handle
+	if err != nil {
+		return
+	}
 	return result.Items, err
 }
 

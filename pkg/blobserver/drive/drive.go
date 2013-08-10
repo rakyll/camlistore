@@ -41,12 +41,13 @@ func newFromConfig(_ blobserver.Loader, config jsonconfig.Obj) (storage blobserv
 	oauthConf := &oauth.Config{
 		ClientId:     auth.RequiredString("client_id"),
 		ClientSecret: auth.RequiredString("client_secret"),
-		Scope:        "",
+		Scope:        "", // TODO: scope is irrelevant
 		AuthURL:      GoogleOAuth2AuthURL,
 		TokenURL:     GoogleOAuth2TokenURL,
 	}
 
-	// force refreshes the access token on start,
+	// force refreshes the access token on start, make sure
+	// refresh request in parallel are being started
 	transport := &oauth.Transport{
 		Token: &oauth.Token{
 			AccessToken:  "",
