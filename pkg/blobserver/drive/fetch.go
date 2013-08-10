@@ -18,12 +18,10 @@ package drive
 
 import (
 	"io"
-	"log"
 
 	"camlistore.org/pkg/blob"
 )
 
 func (sto *DriveStorage) FetchStreaming(blob blob.Ref) (file io.ReadCloser, size int64, reterr error) {
-	log.Printf("Fetching %s", blob.String())
 	return sto.service.Fetch(blob.String())
 }
