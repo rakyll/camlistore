@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"time"
 
+	"camlistore.org/pkg/blob"
 	"camlistore.org/pkg/blobserver"
 	"camlistore.org/pkg/blobserver/drive/service"
 	"camlistore.org/pkg/jsonconfig"
@@ -64,6 +65,14 @@ func newFromConfig(_ blobserver.Loader, config jsonconfig.Obj) (storage blobserv
 		service:                   service,
 	}
 	return sto, err
+}
+
+func (s *DriveStorage) GetBlobParents(b blob.Ref) []string {
+	d := b.Digest()
+	if len(d) < 6 {
+		d = d + "______"
+	}
+	return []string{d[0:3], d[3:6]}
 }
 
 func init() {

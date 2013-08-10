@@ -40,6 +40,34 @@ func New(transport *oauth.Transport, parentId string) (*DriveService, error) {
 	return service, err
 }
 
+func (s *DriveService) MakeDirs(names []string) (file *driveclient.File, err error) {
+	parentId := s.parentId
+	for _, name := range names {
+		// lock the operation
+		req := s.apiservice.Files.List()
+		req.Q(fmt.Sprintf("title = '%s' and '%s' in parents", name, parentId))
+
+		var files *driveclient.FileList
+		if files, err = req.Do(); err != nil {
+			return
+		}
+
+		if len(files.Items) < 1 {
+			// create a new shard, if doesnt exist
+			shard := &driveclient.File{Title: name}
+			shard.MimeType = "application/vnd.google-apps.folder"
+			shard.Parents = []*driveclient.ParentReference{&driveclient.ParentReference{Id: parentId}}
+			if file, err = s.apiservice.Files.Insert(shard).Do(); err != nil {
+				return
+			}
+		} else {
+			file = files.Items[0]
+		}
+		parentId = file.Id
+	}
+	return
+}
+
 func (s *DriveService) Get(id string) (*driveclient.File, error) {
 	req := s.apiservice.Files.List()
 	// TODO: use field selectors
@@ -56,18 +84,18 @@ func (s *DriveService) Get(id string) (*driveclient.File, error) {
 
 // Lists at most limitted number of files
 // from the parent folder
-func (s *DriveService) List(pageToken string, limit int) ([]*driveclient.File, err error) {
+func (s *DriveService) List(pageToken string, limit int) (files []*driveclient.File, err error) {
 	req := s.apiservice.Files.List()
 	req.Q(fmt.Sprintf("'%s' in parents", s.parentId))
 
 	if pageToken != "" {
 		req.PageToken(pageToken)
 	}
-	
+
 	if limit > 0 {
 		req.MaxResults(int64(limit))
 	}
-	
+
 	result, err := req.Do()
 	if err != nil {
 		return
@@ -75,19 +103,31 @@ func (s *DriveService) List(pageToken string, limit int) ([]*driveclient.File, e
 	return result.Items, err
 }
 
-func (s *DriveService) Upsert(id string, blob io.Reader) (file *driveclient.File, err error) {
+func (s *DriveService) Upsert(parents []string, id string, data io.Reader) (file *driveclient.File, err error) {
 	if file, err = s.Get(id); err != nil {
 		return
 	}
-
+	// TODO: file level lock is required once requests
+	// wont be run serially
 	if file == nil {
+		// make a shard first
+		var shard *driveclient.File
+		if shard, err = s.MakeDirs(parents); err != nil {
+			return
+		}
+
 		file = &driveclient.File{Title: id}
-		file.Parents = []*driveclient.ParentReference{&driveclient.ParentReference{Id: s.parentId}}
-		return s.apiservice.Files.Insert(file).Media(blob).Do()
+		// keep parent reference to the root parentId
+		// so stat and get queries will be cheaper
+		file.Parents = []*driveclient.ParentReference{
+			&driveclient.ParentReference{Id: s.parentId},
+			&driveclient.ParentReference{Id: shard.Id},
+		}
+		return s.apiservice.Files.Insert(file).Media(data).Do()
 	}
 
 	// TODO: handle large blobs
-	return s.apiservice.Files.Update(file.Id, file).Media(blob).Do()
+	return s.apiservice.Files.Update(file.Id, file).Media(data).Do()
 }
 
 func (s *DriveService) Fetch(id string) (io.ReadCloser, int64, error) {
