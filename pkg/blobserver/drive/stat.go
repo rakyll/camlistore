@@ -17,18 +17,15 @@ limitations under the License.
 package drive
 
 import (
-	"log"
 	"time"
 
 	"camlistore.org/pkg/blob"
 )
 
 func (sto *DriveStorage) StatBlobs(dest chan<- blob.SizedRef, blobs []blob.Ref, wait time.Duration) error {
-	// TODO: stat in parallel
 	for _, br := range blobs {
 		size, err := sto.service.Stat(br.String())
 		if err == nil {
-			log.Println("Retrieving blob stats from drive", br.String(), size)
 			dest <- blob.SizedRef{Ref: br, Size: size}
 		} else {
 			return err

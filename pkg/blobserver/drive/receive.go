@@ -23,7 +23,6 @@ import (
 )
 
 func (sto *DriveStorage) ReceiveBlob(b blob.Ref, source io.Reader) (blob.SizedRef, error) {
-	// create path
 	file, err := sto.service.Upsert(sto.GetBlobParents(b), b.String(), source)
 	if err != nil {
 		return blob.SizedRef{Ref: b, Size: 0}, err

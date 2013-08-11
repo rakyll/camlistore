@@ -21,7 +21,6 @@ import (
 )
 
 func (sto *DriveStorage) RemoveBlobs(blobs []blob.Ref) error {
-	// TODO: do these in parallel
 	var reterr error
 	for _, blob := range blobs {
 		if err := sto.service.Remove(blob.String()); err != nil {

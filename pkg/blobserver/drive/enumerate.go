@@ -29,19 +29,6 @@ func (sto *DriveStorage) MaxEnumerate() int { return 1000 }
 
 func (sto *DriveStorage) EnumerateBlobs(dest chan<- blob.SizedRef, after string, limit int, wait time.Duration) error {
 	defer close(dest)
-
-	// TODO: fix pagination
-	files, err := sto.service.List(after, limit)
-	if err != nil {
-		return err
-	}
-	for _, f := range files {
-		b, ok := blob.Parse(f.Title)
-		if !ok {
-			continue
-		}
-		dest <- blob.SizedRef{Ref: b, Size: f.FileSize}
-	}
-
+	panic("not implemented")
 	return nil
 }

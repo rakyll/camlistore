@@ -25,6 +25,10 @@ import (
 	driveclient "camlistore.org/third_party/code.google.com/p/google-api-go-client/drive/v2"
 )
 
+const (
+	MimeTypeDriveFolder = "application/vnd.google-apps.folder"
+)
+
 type DriveService struct {
 	transport  *oauth.Transport
 	apiservice *driveclient.Service
@@ -43,7 +47,8 @@ func New(transport *oauth.Transport, parentId string) (*DriveService, error) {
 func (s *DriveService) MakeDirs(names []string) (file *driveclient.File, err error) {
 	parentId := s.parentId
 	for _, name := range names {
-		// lock the operation
+		// lock for name
+		// defer unlock name
 		req := s.apiservice.Files.List()
 		req.Q(fmt.Sprintf("title = '%s' and '%s' in parents", name, parentId))
 
@@ -55,7 +60,7 @@ func (s *DriveService) MakeDirs(names []string) (file *driveclient.File, err err
 		if len(files.Items) < 1 {
 			// create a new shard, if doesnt exist
 			shard := &driveclient.File{Title: name}
-			shard.MimeType = "application/vnd.google-apps.folder"
+			shard.MimeType = MimeTypeDriveFolder
 			shard.Parents = []*driveclient.ParentReference{&driveclient.ParentReference{Id: parentId}}
 			if file, err = s.apiservice.Files.Insert(shard).Do(); err != nil {
 				return
@@ -84,9 +89,9 @@ func (s *DriveService) Get(id string) (*driveclient.File, error) {
 
 // Lists at most limitted number of files
 // from the parent folder
-func (s *DriveService) List(pageToken string, limit int) (files []*driveclient.File, err error) {
+func (s *DriveService) List(pageToken string, limit int) (files []*driveclient.File, next string, err error) {
 	req := s.apiservice.Files.List()
-	req.Q(fmt.Sprintf("'%s' in parents", s.parentId))
+	req.Q(fmt.Sprintf("'%s' in parents and mimeType != '%s'", s.parentId, MimeTypeDriveFolder))
 
 	if pageToken != "" {
 		req.PageToken(pageToken)
@@ -100,7 +105,7 @@ func (s *DriveService) List(pageToken string, limit int) (files []*driveclient.F
 	if err != nil {
 		return
 	}
-	return result.Items, err
+	return result.Items, result.NextPageToken, err
 }
 
 func (s *DriveService) Upsert(parents []string, id string, data io.Reader) (file *driveclient.File, err error) {
