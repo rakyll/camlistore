@@ -37,6 +37,7 @@ type root struct {
 	mu     sync.Mutex // guards recent
 	recent *recentDir
 	roots  *rootsDir
+	blob   *blobDir
 }
 
 func (n *root) Attr() fuse.Attr {
@@ -55,6 +56,7 @@ func (n *root) ReadDir(intr fuse.Intr) ([]fuse.Dirent, fuse.Error) {
 		{Name: "recent"},
 		{Name: "roots"},
 		{Name: "sha1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"},
+		{Name: "blob"},
 	}, nil
 }
 
@@ -76,6 +78,16 @@ func (n *root) getRootsDir() *rootsDir {
 	return n.roots
 }
 
+func (n *root) getBlobDir() *blobDir {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	if n.blob == nil {
+		n.blob = &blobDir{fs: n.fs}
+	}
+	return n.blob
+}
+
 func (n *root) Lookup(name string, intr fuse.Intr) (fuse.Node, fuse.Error) {
 	switch name {
 	case ".quitquitquit":
@@ -90,6 +102,8 @@ func (n *root) Lookup(name string, intr fuse.Intr) (fuse.Node, fuse.Error) {
 		return n.getRootsDir(), nil
 	case "sha1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx":
 		return notImplementDirNode{}, nil
+	case "blob":
+		return n.getBlobDir(), nil
 	case ".camli_fs_stats":
 		return statsDir{}, nil
 	case "mach_kernel", ".hidden", "._.":
