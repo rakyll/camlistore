@@ -147,23 +147,18 @@ func main() {
 		}
 	}
 
-	signal.Notify(sigc, syscall.SIGQUIT, syscall.SIGTERM)
+	signal.Notify(sigc, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT)
 
 	doneServe := make(chan error, 1)
 	go func() {
 		doneServe <- conn.Serve(camfs)
 	}()
 
-	quitKey := make(chan bool, 1)
-	go awaitQuitKey(quitKey)
-
 	select {
 	case err := <-doneServe:
 		log.Printf("conn.Serve returned %v", err)
 	case sig := <-sigc:
 		log.Printf("Signal %s received, shutting down.", sig)
-	case <-quitKey:
-		log.Printf("Quit key pressed. Shutting down.")
 	case <-xtermDone:
 		log.Printf("xterm done")
 	}
@@ -173,21 +168,7 @@ func main() {
 	})
 	log.Printf("Unmounting...")
 	err = fs.Unmount(mountPoint)
-	log.Printf("Unmount = %v", err)
+	log.Printf("Unmount err = %v", err)
 
 	log.Printf("cammount FUSE process ending.")
-}
-
-func awaitQuitKey(done chan<- bool) {
-	var buf [1]byte
-	for {
-		_, err := os.Stdin.Read(buf[:])
-		if err != nil {
-			return
-		}
-		if buf[0] == 'q' {
-			done <- true
-			return
-		}
-	}
 }
